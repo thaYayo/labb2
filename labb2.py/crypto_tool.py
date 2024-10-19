@@ -21,8 +21,6 @@ def pbkdf2_key_from_password(password,salt):
     password_key = base64.urlsafe_b64encode(password_key)
     return password_key
 
-
-
 def encrypt(file, key=None, password=None):
     if password:
         salt = os.urandom(16)
