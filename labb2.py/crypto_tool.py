@@ -12,8 +12,8 @@ import os
 import hashlib
 import base64
 import keygen
-
 from cryptography.fernet import Fernet
+
 # Lägg till funktionalitet för att skapa en lösenordsbaserad nyckel med hjälp av PBKDF2.
 def pbkdf2_key_from_password(password,salt):
     hash_name = "sha256"
