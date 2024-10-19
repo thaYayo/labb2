@@ -1,4 +1,3 @@
-
 # Kryptera en fil med hjälp av en symmetrisk nyckel (filnamn som argument).
 # Dekryptera en krypterad fil med rätt nyckel (filnamn som argument).
 #  Kryptering och Dekryptering:
@@ -16,12 +15,9 @@ import keygen
 
 from cryptography.fernet import Fernet
 # Lägg till funktionalitet för att skapa en lösenordsbaserad nyckel med hjälp av PBKDF2.
-
-def pbkdf2_key_from_password():
-    password = getpass("Ange lösenord: ").encode()
+def pbkdf2_key_from_password(password,salt):
     hash_name = "sha256"
-    salt = os.urandom(16)
-    password_key = hashlib.pbkdf2_hmac(hash_name, password, salt, 200000)
+    password_key = hashlib.pbkdf2_hmac(hash_name, password,salt, 200000)
     password_key = base64.urlsafe_b64encode(password_key)
     return password_key
 
@@ -29,12 +25,14 @@ def pbkdf2_key_from_password():
 
 def encrypt(file, key=None, password=None):
     if password:
-        key = password
+        salt = os.urandom(16)
+        key = pbkdf2_key_from_password(password,salt)
     else:
         try:
             if key:
                 with open(key, "rb") as f:
                     key = f.read()
+                salt=None
         except PermissionError:
             print("Fil ej hittad!\nAnge filnamn på .txt som önskas läsas där nyckel befinns. (Möjligen glömt sista steg i angiven path?)\n")
             sys.exit()
@@ -47,11 +45,15 @@ def encrypt(file, key=None, password=None):
     with open(file, "rb") as encrypt_file:
         file_encrypt = encrypt_file.read()
 
-    cipher_text = cipher_suite.encrypt(file_encrypt)
+    cipher_text =  cipher_suite.encrypt(file_encrypt)
 
-    with open("encrypted_file.enc", "wb") as encoded_file:
+    if salt:
+        cipher_text = salt + cipher_suite.encrypt(file_encrypt)
+
+    file_name = input("ange namn på fil: ")
+    with open(f"{file_name}.enc", "wb") as encoded_file:
         encoded_file.write(cipher_text)
-        print("Fil har skapats och sparats som: encrypted_file.enc")
+        print(f"Fil har skapats och sparats som: {file_name}.enc")
 
 def decrypt(file,key=None, password=None):
     with open(file, "rb") as encoded_file:
@@ -60,7 +62,9 @@ def decrypt(file,key=None, password=None):
         with open(key, "rb") as f:
             key = f.read()
     elif password:
-        key = password
+        salt = data_file[:16]
+        data_file = data_file[16:]
+        key = pbkdf2_key_from_password(password,salt)
 
     cipher_suite = Fernet(key)
 
@@ -77,7 +81,7 @@ def main():
     subparsers = parser.add_subparsers(dest='command')
 
     get_key = subparsers.add_parser("generate", help= 'Genererar en symetrisk nyckel, möjligt att spara resultat i önskad fil.')
-    get_key.add_argument("-o", "--output", help="Ange path där du vill att nyckel sparas: ")
+    get_key.add_argument("-o", "--output", help="Ange path där du vill att nyckel sparas | -o/--output <path\\filename> ")
 
     encrypt_file = subparsers.add_parser("encrypt", help="Krypterar fil | encrypt <fil> <optional>")
     encrypt_file.add_argument("file", help="Ange fil. Om filen inte finns i samma folder, ange path till filen.")
@@ -101,7 +105,7 @@ def main():
         if args.key:
             encrypt(args.file, key=args.key)
         elif args.password:
-            user_password = pbkdf2_key_from_password()
+            user_password = getpass("Ange lösenord: ").encode()
             encrypt(args.file, password=user_password)
         else:
             print("måste välja key eller password")
@@ -111,8 +115,8 @@ def main():
             decrypt(args.file, key=args.key)
         elif args.password:
             try:
-                user_password = pbkdf2_key_from_password()
-                decrypt(args.file, password=user_password)
+                check_password = getpass("Ange lösenord: ").encode()
+                decrypt(args.file, password=check_password)
             except Exception as e:
                 print(f"Fel lösenord {e}")
         else:
